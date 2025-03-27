@@ -1,0 +1,330 @@
+/* Custom Properties */
+:root {
+  /* Colors */
+  --tutorpress-primary: #3e64de;
+  --tutorpress-secondary: #757575;
+  --tutorpress-border: #dcdfe5;
+  --tutorpress-background: #ffffff;
+  --tutorpress-hover: #f8f9fa;
+  --tutorpress-active: #e9ecef;
+  --tutorpress-error: #dc3545;
+  --tutorpress-success: #28a745;
+
+  /* Spacing */
+  --tutorpress-spacing-xs: 4px;
+  --tutorpress-spacing-sm: 8px;
+  --tutorpress-spacing-md: 16px;
+  --tutorpress-spacing-lg: 24px;
+  --tutorpress-spacing-xl: 32px;
+
+  /* Typography */
+  --tutorpress-font-size-sm: 13px;
+  --tutorpress-font-size-md: 14px;
+  --tutorpress-font-size-lg: 16px;
+
+  /* Transitions */
+  --tutorpress-transition: all 0.2s ease-in-out;
+
+  /* Z-index layers */
+  --tutorpress-z-index-base: 1;
+  --tutorpress-z-index-dropdown: 1000;
+  --tutorpress-z-index-modal: 1050;
+}
+
+/* Curriculum Builder Container */
+.tutorpress-curriculum-builder {
+  background: var(--tutorpress-background);
+  border: none;
+  border-radius: 6px;
+  margin: var(--tutorpress-spacing-md) 0;
+}
+
+/* Curriculum Header */
+.tutorpress-curriculum-header {
+  align-items: center;
+  border-bottom: none;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--tutorpress-spacing-md);
+}
+
+.tutorpress-expand-all {
+  background: none;
+  border: none;
+  color: var(--tutorpress-primary);
+  cursor: pointer;
+  font-size: var(--tutorpress-font-size-md);
+}
+
+/* Topics Container */
+.tutorpress-topics-container {
+  padding: var(--tutorpress-spacing-md);
+}
+
+/* Topic Item */
+.tutorpress-topic {
+  background: var(--tutorpress-background);
+  border: 1px solid var(--tutorpress-border);
+  border-radius: 6px;
+  margin-bottom: var(--tutorpress-spacing-md);
+  transition: var(--tutorpress-transition);
+}
+
+.tutorpress-topic:hover {
+  background: var(--tutorpress-hover);
+}
+
+.tutorpress-topic:hover .tutorpress-content-item {
+  background: var(--tutorpress-hover);
+}
+
+.tutorpress-topic-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: var(--tutorpress-spacing-md);
+}
+
+.tutorpress-topic-header-left {
+  align-items: center;
+  display: flex;
+  gap: var(--tutorpress-spacing-sm);
+}
+
+.tutorpress-topic-header-right {
+  display: flex;
+  gap: var(--tutorpress-spacing-sm);
+  opacity: 0;
+  transition: var(--tutorpress-transition);
+}
+
+.tutorpress-topic-title {
+  font-size: var(--tutorpress-font-size-lg);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Topic Content */
+.tutorpress-topic-content {
+  border-top: 1px solid var(--tutorpress-border);
+  padding: var(--tutorpress-spacing-md);
+}
+
+/* Content Items */
+.tutorpress-content-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tutorpress-spacing-sm);
+  margin-bottom: var(--tutorpress-spacing-md);
+}
+
+.tutorpress-content-item {
+  align-items: center;
+  background: var(--tutorpress-background);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  padding: var(--tutorpress-spacing-sm) var(--tutorpress-spacing-md);
+  transition: var(--tutorpress-transition);
+}
+
+.tutorpress-content-item:hover {
+  background: var(--tutorpress-background) !important; /* Override the topic hover state */
+  border-color: var(--tutorpress-border);
+}
+
+.tutorpress-content-item-left {
+  align-items: center;
+  display: flex;
+  gap: var(--tutorpress-spacing-sm);
+}
+
+.tutorpress-content-item-right {
+  display: flex;
+  gap: var(--tutorpress-spacing-sm);
+  opacity: 0;
+  transition: var(--tutorpress-transition);
+}
+
+/* Icons and Buttons */
+.tutorpress-drag-handle,
+.tutorpress-topic-toggle,
+.tutorpress-content-icon {
+  color: var(--tutorpress-secondary);
+  cursor: pointer;
+  transition: var(--tutorpress-transition);
+}
+
+/* Hide drag handles by default */
+.tutorpress-drag-handle {
+  display: none;
+}
+
+/* Show drag handle and hide content icon on hover */
+.tutorpress-content-item:hover .tutorpress-drag-handle {
+  display: inline-block;
+}
+
+.tutorpress-content-item:hover .tutorpress-content-icon {
+  display: none;
+}
+
+/* Exception for topic drag handle - always show it */
+.tutorpress-topic-header .tutorpress-drag-handle {
+  display: inline-block;
+}
+
+.tutorpress-drag-handle:hover,
+.tutorpress-topic-toggle:hover {
+  color: var(--tutorpress-primary);
+}
+
+.tutorpress-topic-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Show action buttons on hover */
+.tutorpress-topic-header:hover .tutorpress-topic-header-right,
+.tutorpress-content-item:hover .tutorpress-content-item-right {
+  opacity: 1;
+}
+
+/* Action buttons */
+.tutorpress-topic-edit,
+.tutorpress-topic-duplicate,
+.tutorpress-topic-delete,
+.tutorpress-content-edit,
+.tutorpress-content-duplicate,
+.tutorpress-content-delete {
+  background: none;
+  border: none;
+  color: var(--tutorpress-secondary);
+  cursor: pointer;
+  padding: var(--tutorpress-spacing-xs);
+  transition: var(--tutorpress-transition);
+}
+
+.tutorpress-topic-edit:hover,
+.tutorpress-content-edit:hover,
+.tutorpress-topic-duplicate:hover,
+.tutorpress-content-duplicate:hover {
+  color: var(--tutorpress-primary);
+}
+
+.tutorpress-topic-delete:hover,
+.tutorpress-content-delete:hover {
+  color: var(--tutorpress-error);
+}
+
+/* Content Actions */
+.tutorpress-content-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tutorpress-spacing-sm);
+  margin-top: var(--tutorpress-spacing-md);
+}
+
+.tutorpress-add-lesson,
+.tutorpress-add-quiz,
+.tutorpress-add-assignment,
+.tutorpress-add-interactive-quiz {
+  align-items: center;
+  background: var(--tutorpress-hover);
+  border: 1px solid var(--tutorpress-border);
+  border-radius: 4px;
+  color: var(--tutorpress-secondary);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--tutorpress-font-size-sm);
+  gap: var(--tutorpress-spacing-xs);
+  padding: var(--tutorpress-spacing-sm) var(--tutorpress-spacing-md);
+  transition: var(--tutorpress-transition);
+}
+
+.tutorpress-add-lesson:hover,
+.tutorpress-add-quiz:hover,
+.tutorpress-add-assignment:hover,
+.tutorpress-add-interactive-quiz:hover {
+  background: var(--tutorpress-background);
+  border-color: var(--tutorpress-primary);
+  color: var(--tutorpress-primary);
+}
+
+/* Add Topic Button */
+.tutorpress-add-topic-wrapper {
+  border-top: 1px solid var(--tutorpress-border);
+  padding: var(--tutorpress-spacing-md);
+}
+
+.tutorpress-add-topic {
+  align-items: center;
+  background: var(--tutorpress-primary);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  font-size: var(--tutorpress-font-size-md);
+  gap: var(--tutorpress-spacing-xs);
+  justify-content: center;
+  padding: var(--tutorpress-spacing-sm) var(--tutorpress-spacing-md);
+  transition: var(--tutorpress-transition);
+  width: 100%;
+}
+
+.tutorpress-add-topic:hover {
+  opacity: 0.9;
+}
+
+/* Accessibility */
+.screen-reader-text {
+  border: 0;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  word-wrap: normal !important;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+  .tutorpress-topic-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--tutorpress-spacing-sm);
+  }
+
+  .tutorpress-topic-header-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .tutorpress-content-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--tutorpress-spacing-sm);
+  }
+
+  .tutorpress-content-item-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .tutorpress-content-actions {
+    flex-direction: column;
+  }
+
+  .tutorpress-add-lesson,
+  .tutorpress-add-quiz,
+  .tutorpress-add-assignment,
+  .tutorpress-add-interactive-quiz {
+    width: 100%;
+  }
+}

@@ -20,33 +20,43 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const TEMPLATES = {
-    newTopic: `
-        <div class="tutorpress-topic tutorpress-topic-new">
-          <div class="tutorpress-topic-header">
-            <div class="tutorpress-topic-header-left">
-              <span class="tutorpress-drag-handle tutor-icon-drag disabled"></span>
-              <button type="button" class="tutorpress-topic-toggle" aria-expanded="false" disabled>
-                <span class="tutor-icon-angle-down"></span>
-              </button>
-              <input type="text" 
-                     class="tutorpress-topic-title-input" 
-                     placeholder="Add a title"
-                     required>
-            </div>
+    topicForm: (data = {}) => `
+        <div class="tutorpress-topic-header" ${data.order ? `data-order="${data.order}"` : ""}>
+          <div class="tutorpress-topic-header-left">
+            <span class="tutorpress-drag-handle tutor-icon-drag disabled"></span>
+            <input type="text" 
+                   class="tutorpress-topic-title-input" 
+                   value="${data.title || ""}"
+                   placeholder="${window?.tutorpressData?.i18n?.addTopic || "Add Topic Title"}"
+                   required>
           </div>
-          <div class="tutorpress-topic-content">
-            <div class="tutorpress-form-group">
-              <textarea class="tutorpress-topic-summary-input" 
-                        placeholder="Add a summary"></textarea>
-            </div>
+        </div>
+        <div class="tutorpress-topic-content">
+          <div class="tutorpress-form-group">
+            <textarea class="tutorpress-topic-summary-input" 
+                      placeholder="Add a summary">${data.summary || ""}</textarea>
+          </div>
+          <div class="tutorpress-form-actions">
+            <button type="button" class="tutorpress-btn tutorpress-btn-cancel">
+              ${window?.tutorpressData?.i18n?.cancel || "Cancel"}
+            </button>
+            <button type="button" class="tutorpress-btn tutorpress-btn-save" ${!data.title ? "disabled" : ""}>
+              ${window?.tutorpressData?.i18n?.save || "Ok"}
+            </button>
+          </div>
+          <hr class="tutorpress-divider" />
+          ${data.contentItems || ""}
+          ${
+            data.contentActions ||
+            `
             <div class="tutorpress-content-actions disabled">
               <button type="button" class="tutorpress-add-lesson" disabled>
                 <span class="tutor-icon-plus-square"></span>
-                Lesson
+                ${window?.tutorpressData?.i18n?.addLesson || "Lesson"}
               </button>
               <button type="button" class="tutorpress-add-quiz" disabled>
                 <span class="tutor-icon-plus-square"></span>
-                Quiz
+                ${window?.tutorpressData?.i18n?.addQuiz || "Quiz"}
               </button>
               <button type="button" class="tutorpress-add-interactive-quiz" disabled>
                 <span class="tutor-icon-plus-square"></span>
@@ -54,14 +64,11 @@ document.addEventListener("DOMContentLoaded", function () {
               </button>
               <button type="button" class="tutorpress-add-assignment" disabled>
                 <span class="tutor-icon-plus-square"></span>
-                Assignment
+                ${window?.tutorpressData?.i18n?.addAssignment || "Assignment"}
               </button>
             </div>
-            <div class="tutorpress-form-actions">
-              <button type="button" class="tutorpress-btn tutorpress-btn-cancel">Cancel</button>
-              <button type="button" class="tutorpress-btn tutorpress-btn-save" disabled>Ok</button>
-            </div>
-          </div>
+          `
+          }
         </div>
       `,
   };
@@ -162,50 +169,7 @@ document.addEventListener("DOMContentLoaded", function () {
     handleAddTopic() {
       const topicForm = document.createElement("div");
       topicForm.className = "tutorpress-topic tutorpress-topic-new";
-      topicForm.innerHTML = `
-          <div class="tutorpress-topic-header">
-            <div class="tutorpress-topic-header-left">
-              <span class="tutorpress-drag-handle tutor-icon-drag disabled"></span>
-              <input type="text" 
-                     class="tutorpress-topic-title-input" 
-                     placeholder="${window?.tutorpressData?.i18n?.addTopic || "Add Topic Title"}"
-                     required>
-            </div>
-          </div>
-          <div class="tutorpress-topic-content">
-            <div class="tutorpress-form-group">
-              <textarea class="tutorpress-topic-summary-input" 
-                        placeholder="Add a summary"></textarea>
-            </div>
-            <div class="tutorpress-form-actions">
-              <button type="button" class="tutorpress-btn tutorpress-btn-cancel">
-                ${window?.tutorpressData?.i18n?.cancel || "Cancel"}
-              </button>
-              <button type="button" class="tutorpress-btn tutorpress-btn-save" disabled>
-                ${window?.tutorpressData?.i18n?.save || "Ok"}
-              </button>
-            </div>
-            <hr class="tutorpress-divider" />
-            <div class="tutorpress-content-actions disabled">
-              <button type="button" class="tutorpress-add-lesson" disabled>
-                <span class="tutor-icon-plus-square"></span>
-                ${window?.tutorpressData?.i18n?.addLesson || "Lesson"}
-              </button>
-              <button type="button" class="tutorpress-add-quiz" disabled>
-                <span class="tutor-icon-plus-square"></span>
-                ${window?.tutorpressData?.i18n?.addQuiz || "Quiz"}
-              </button>
-              <button type="button" class="tutorpress-add-interactive-quiz" disabled>
-                <span class="tutor-icon-plus-square"></span>
-                Interactive Quiz
-              </button>
-              <button type="button" class="tutorpress-add-assignment" disabled>
-                <span class="tutor-icon-plus-square"></span>
-                ${window?.tutorpressData?.i18n?.addAssignment || "Assignment"}
-              </button>
-            </div>
-          </div>
-        `;
+      topicForm.innerHTML = TEMPLATES.topicForm();
 
       // Add form to container
       this.topicsContainer.appendChild(topicForm);
@@ -379,36 +343,14 @@ document.addEventListener("DOMContentLoaded", function () {
       const contentItems = topic.querySelector(".tutorpress-content-items")?.outerHTML || "";
       const contentActions = topic.querySelector(".tutorpress-content-actions")?.outerHTML || "";
 
-      // Create edit form
-      const editForm = document.createElement("div");
-      editForm.className = "tutorpress-topic-edit-form";
-      editForm.innerHTML = `
-          <div class="tutorpress-topic-header" data-order="${currentOrder}">
-            <div class="tutorpress-topic-header-left">
-              <span class="tutorpress-drag-handle tutor-icon-drag disabled"></span>
-              <input type="text" 
-                     class="tutorpress-topic-title-input" 
-                     value="${this.escapeHtml(currentTitle)}"
-                     required>
-            </div>
-          </div>
-          <div class="tutorpress-topic-content">
-            <div class="tutorpress-form-group">
-              <textarea class="tutorpress-topic-summary-input" 
-                        placeholder="Add a summary">${this.escapeHtml(currentSummary)}</textarea>
-            </div>
-            <div class="tutorpress-form-actions">
-              <button type="button" class="tutorpress-btn tutorpress-btn-cancel">Cancel</button>
-              <button type="button" class="tutorpress-btn tutorpress-btn-save">Ok</button>
-            </div>
-            <hr class="tutorpress-divider" />
-            ${contentItems}
-            ${contentActions}
-          </div>
-        `;
-
-      // Replace topic content with edit form while preserving content items
-      topic.innerHTML = editForm.innerHTML;
+      // Create edit form using the shared template
+      topic.innerHTML = TEMPLATES.topicForm({
+        title: currentTitle,
+        summary: currentSummary,
+        order: currentOrder,
+        contentItems,
+        contentActions,
+      });
       topic.classList.add("editing");
 
       // Focus title input

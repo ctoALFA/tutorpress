@@ -268,48 +268,20 @@ class Curriculum_Metabox {
 
         // Register REST routes for curriculum management
         register_rest_route(
-            'tutorpress/v1',
-            '/curriculum/topic',
+            self::REST_NAMESPACE,
+            '/topic',
             [
-                [
-                    'methods' => WP_REST_Server::CREATABLE,
-                    'callback' => [__CLASS__, 'handle_topic_save'],
-                    'permission_callback' => [__CLASS__, 'check_topic_permissions'],
-                    'args' => [
-                        'course_id' => [
-                            'required' => true,
-                            'type' => 'integer',
-                            'sanitize_callback' => 'absint',
-                        ],
-                        'title' => [
-                            'required' => true,
-                            'type' => 'string',
-                            'sanitize_callback' => 'sanitize_text_field',
-                        ],
-                        'summary' => [
-                            'required' => false,
-                            'type' => 'string',
-                            'sanitize_callback' => 'sanitize_textarea_field',
-                        ],
-                        'topic_id' => [
-                            'required' => false,
-                            'type' => 'integer',
-                            'sanitize_callback' => 'absint',
-                        ],
-                    ],
-                ],
-                [
-                    'methods' => WP_REST_Server::DELETABLE,
-                    'callback' => [__CLASS__, 'handle_topic_delete'],
-                    'permission_callback' => [__CLASS__, 'check_topic_permissions'],
-                    'args' => [
-                        'topic_id' => [
-                            'required' => true,
-                            'type' => 'integer',
-                            'sanitize_callback' => 'absint',
-                        ],
-                    ],
-                ],
+                'methods' => 'POST',
+                'callback' => [__CLASS__, 'handle_topic_save'],
+                'permission_callback' => [__CLASS__, 'check_topic_permissions'],
+                'args' => [
+                    'course_id' => ['required' => true],
+                    'title' => ['required' => true],
+                    'topic_id' => ['required' => false],
+                    'summary' => ['required' => false],
+                    'order' => ['required' => false, 'type' => 'integer'],
+                    'content_drip_settings' => ['required' => false]
+                ]
             ]
         );
     }
@@ -352,8 +324,7 @@ class Curriculum_Metabox {
             'post_type' => 'topics',
             'post_parent' => $course_id,
             'posts_per_page' => -1,
-            'orderby' => 'meta_value_num',
-            'meta_key' => 'topic_order',
+            'orderby' => 'menu_order',
             'order' => 'ASC',
         ]);
 
@@ -368,9 +339,16 @@ class Curriculum_Metabox {
         $title = $request->get_param('title');
         $summary = $request->get_param('summary');
         $topic_id = $request->get_param('topic_id');
+        $order = $request->get_param('order');
 
-        // Get next topic order
-        $next_order = tutor_utils()->get_next_topic_order_id($course_id);
+        // If no order provided and it's a new topic, get next order
+        if (!$order && !$topic_id) {
+            $order = tutor_utils()->get_next_topic_order_id($course_id);
+        } else if ($topic_id) {
+            // If editing an existing topic and no order provided, keep the current order
+            $current_order = get_post_field('menu_order', $topic_id);
+            $order = $order ?: $current_order;
+        }
 
         $topic_data = [
             'post_type'    => 'topics',
@@ -378,7 +356,7 @@ class Curriculum_Metabox {
             'post_content' => $summary,
             'post_status'  => 'publish',
             'post_parent'  => $course_id,
-            'menu_order'   => $next_order,
+            'menu_order'   => $order,
         ];
 
         if ($topic_id) {

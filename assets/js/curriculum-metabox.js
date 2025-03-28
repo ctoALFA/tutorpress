@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
     saveTopicBtn: ".tutorpress-btn-save",
     cancelTopicBtn: ".tutorpress-btn-cancel",
     deleteTopicBtn: ".tutorpress-topic-delete",
+    editTopicBtn: ".tutorpress-topic-edit",
   };
 
   const TEMPLATES = {
@@ -138,6 +139,23 @@ document.addEventListener("DOMContentLoaded", function () {
           e.preventDefault();
           this.handleDeleteTopic(target);
         }
+
+        if (target.matches(SELECTORS.editTopicBtn)) {
+          e.preventDefault();
+          const topic = target.closest(SELECTORS.topic);
+          this.handleEditTopic(topic);
+        }
+      });
+
+      // Handle double-click on topic title
+      this.container.addEventListener("dblclick", (e) => {
+        const target = e.target;
+        if (target.matches(".tutorpress-topic-title")) {
+          const topic = target.closest(SELECTORS.topic);
+          if (topic && !topic.classList.contains("tutorpress-topic-new")) {
+            this.handleEditTopic(topic);
+          }
+        }
       });
     }
 
@@ -204,20 +222,34 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     handleCancelTopic(cancelBtn) {
-      const topicForm = cancelBtn.closest(SELECTORS.topicForm);
-      if (topicForm) {
-        topicForm.remove();
+      const topic = cancelBtn.closest(SELECTORS.topic);
+
+      if (topic.classList.contains("tutorpress-topic-new")) {
+        topic.remove();
+        return;
+      }
+
+      if (topic.classList.contains("editing")) {
+        topic.innerHTML = topic.dataset.originalContent;
+        topic.classList.remove("editing");
+        delete topic.dataset.originalContent;
       }
     }
 
     async handleSaveTopic(saveBtn) {
-      const topicForm = saveBtn.closest(SELECTORS.topicForm);
-      if (!topicForm) return;
+      const topic = saveBtn.closest(SELECTORS.topic);
+      if (!topic) return;
 
-      const titleInput = topicForm.querySelector(SELECTORS.topicTitleInput);
-      const summaryInput = topicForm.querySelector(SELECTORS.topicSummaryInput);
+      const titleInput = topic.querySelector(SELECTORS.topicTitleInput);
+      const summaryInput = topic.querySelector(SELECTORS.topicSummaryInput);
       const title = titleInput.value.trim();
       const summary = summaryInput.value.trim();
+      const topicId = topic.classList.contains("editing") ? topic.dataset.topicId : null;
+      const order = topic.dataset.originalOrder || topic.dataset.order || "0";
+
+      // Store existing content items before saving
+      const contentItems = topic.querySelector(".tutorpress-content-items")?.outerHTML || "";
+      const contentActions = topic.querySelector(".tutorpress-content-actions")?.outerHTML || "";
 
       if (!title) return;
 
@@ -226,21 +258,20 @@ document.addEventListener("DOMContentLoaded", function () {
         saveBtn.disabled = true;
         saveBtn.textContent = window?.tutorpressData?.i18n?.saving || "Saving...";
 
-        const response = await fetch(
-          `${window?.tutorpressData?.restUrl || "/wp-json/tutorpress/v1"}/curriculum/topic`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-WP-Nonce": window?.tutorpressData?.restNonce,
-            },
-            body: JSON.stringify({
-              course_id: this.courseId,
-              title,
-              summary,
-            }),
-          }
-        );
+        const response = await fetch(`${window?.tutorpressData?.restUrl || "/wp-json/tutorpress/v1"}/topic`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-WP-Nonce": window?.tutorpressData?.restNonce,
+          },
+          body: JSON.stringify({
+            course_id: this.courseId,
+            topic_id: topicId,
+            title,
+            summary,
+            order: parseInt(order, 10),
+          }),
+        });
 
         if (!response.ok) {
           throw new Error("Failed to save topic");
@@ -248,10 +279,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const data = await response.json();
 
-        // Replace form with saved topic
-        topicForm.innerHTML = this.getTopicHtml(data);
-        topicForm.className = "tutorpress-topic";
-        topicForm.setAttribute("data-topic-id", data.id);
+        // Update topic content while preserving content items
+        if (topic.classList.contains("editing")) {
+          topic.classList.remove("editing");
+          delete topic.dataset.originalContent;
+          delete topic.dataset.originalOrder;
+        }
+
+        // Get the base topic HTML
+        const baseHtml = this.getTopicHtml(data);
+
+        // Create a temporary container to parse the HTML
+        const temp = document.createElement("div");
+        temp.innerHTML = baseHtml;
+
+        // Replace the content items and actions with the preserved ones
+        if (contentItems || contentActions) {
+          const contentContainer = temp.querySelector(".tutorpress-topic-content");
+          if (contentContainer) {
+            // Remove the default empty content items and actions
+            contentContainer.querySelector(".tutorpress-content-items")?.remove();
+            contentContainer.querySelector(".tutorpress-content-actions")?.remove();
+
+            // Append the preserved content
+            contentContainer.innerHTML += contentItems + contentActions;
+          }
+        }
+
+        // Update the topic with the complete HTML
+        topic.innerHTML = temp.innerHTML;
+        topic.className = "tutorpress-topic";
+        topic.setAttribute("data-topic-id", data.id);
+        topic.setAttribute("data-order", data.order || order);
       } catch (error) {
         // Show error state
         saveBtn.textContent = window?.tutorpressData?.i18n?.error || "Error";
@@ -302,9 +361,74 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    handleEditTopic(topic) {
+      if (topic.classList.contains("editing")) return;
+
+      const topicId = topic.dataset.topicId;
+      const titleEl = topic.querySelector(".tutorpress-topic-title");
+      const summaryEl = topic.querySelector(".tutorpress-topic-summary");
+      const currentTitle = titleEl.textContent.trim();
+      const currentSummary = summaryEl ? summaryEl.textContent.trim() : "";
+      const currentOrder = topic.querySelector(".tutorpress-topic-header").dataset.order || "0";
+
+      // Store original content and order for cancel action
+      topic.dataset.originalContent = topic.innerHTML;
+      topic.dataset.originalOrder = currentOrder;
+
+      // Get the existing content items and actions
+      const contentItems = topic.querySelector(".tutorpress-content-items")?.outerHTML || "";
+      const contentActions = topic.querySelector(".tutorpress-content-actions")?.outerHTML || "";
+
+      // Create edit form
+      const editForm = document.createElement("div");
+      editForm.className = "tutorpress-topic-edit-form";
+      editForm.innerHTML = `
+          <div class="tutorpress-topic-header" data-order="${currentOrder}">
+            <div class="tutorpress-topic-header-left">
+              <span class="tutorpress-drag-handle tutor-icon-drag disabled"></span>
+              <input type="text" 
+                     class="tutorpress-topic-title-input" 
+                     value="${this.escapeHtml(currentTitle)}"
+                     required>
+            </div>
+          </div>
+          <div class="tutorpress-topic-content">
+            <div class="tutorpress-form-group">
+              <textarea class="tutorpress-topic-summary-input" 
+                        placeholder="Add a summary">${this.escapeHtml(currentSummary)}</textarea>
+            </div>
+            <div class="tutorpress-form-actions">
+              <button type="button" class="tutorpress-btn tutorpress-btn-cancel">Cancel</button>
+              <button type="button" class="tutorpress-btn tutorpress-btn-save">Ok</button>
+            </div>
+            <hr class="tutorpress-divider" />
+            ${contentItems}
+            ${contentActions}
+          </div>
+        `;
+
+      // Replace topic content with edit form while preserving content items
+      topic.innerHTML = editForm.innerHTML;
+      topic.classList.add("editing");
+
+      // Focus title input
+      const titleInput = topic.querySelector(".tutorpress-topic-title-input");
+      titleInput.focus();
+      titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
+    }
+
+    escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
     getTopicHtml(topic) {
       return `
-          <div class="tutorpress-topic-header">
+          <div class="tutorpress-topic-header" data-order="${topic.order || "0"}">
             <div class="tutorpress-topic-header-left">
               <span class="tutorpress-drag-handle tutor-icon-drag"></span>
               <button type="button" class="tutorpress-topic-toggle" aria-expanded="false">

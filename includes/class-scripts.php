@@ -130,17 +130,10 @@ class TutorPress_Scripts {
         global $post;
         $screen = get_current_screen();
         
-        // Debug information
-        error_log('TutorPress: enqueue_gutenberg_scripts called with post: ' . print_r($post, true));
-        error_log('TutorPress: screen info: ' . print_r($screen, true));
-        
-        // Always load on post edit screens to ensure it's loaded
+        // Only load on post edit screens
         if (!$screen || $screen->base !== 'post') {
-            error_log('TutorPress: Not a post edit screen');
             return;
         }
-
-        error_log('TutorPress: Loading curriculum metabox script for post edit screen');
 
         $post_id = isset($post) ? $post->ID : 0;
         $post_type = isset($post) ? $post->post_type : '';
@@ -148,8 +141,11 @@ class TutorPress_Scripts {
         if (empty($post_type) && isset($_GET['post_type'])) {
             $post_type = $_GET['post_type'];
         }
-        
-        error_log('TutorPress: Post ID: ' . $post_id . ', Post Type: ' . $post_type);
+
+        // Only load for courses post type
+        if ($post_type !== 'courses') {
+            return;
+        }
 
         // Register dependencies first 
         wp_enqueue_script('wp-element');
@@ -160,7 +156,7 @@ class TutorPress_Scripts {
         wp_enqueue_script('wp-i18n');
         wp_enqueue_script('wp-data');
 
-        // Now register our script with all required dependencies
+        // Enqueue our script with all required dependencies
         wp_enqueue_script(
             'tutorpress-curriculum-metabox',
             plugins_url('assets/js/curriculum-metabox.js', dirname(__FILE__)),
@@ -186,36 +182,30 @@ class TutorPress_Scripts {
         );
 
         // Add localization data
-        wp_localize_script('tutorpress-curriculum-metabox', 'TutorPressCurriculum', [
+        wp_localize_script('tutorpress-curriculum-metabox', 'tutorpressData', [
             'restUrl' => rest_url('tutorpress/v1'),
             'restNonce' => wp_create_nonce('wp_rest'),
             'courseId' => $post_id,
-            'debug' => [
-                'postId' => $post_id,
-                'postType' => $post_type,
-                'screenId' => $screen->id,
-                'screenBase' => $screen->base,
-                'screenPostType' => $screen->post_type,
-                'isGutenberg' => true,
-                'inEditor' => is_admin() && $screen->base === 'post',
-                'isCourse' => $post_type === 'courses' || $screen->post_type === 'courses'
-            ],
             'i18n' => [
-                'loading' => __('Loading...', 'tutorpress'),
                 'addTopic' => __('Add Topic', 'tutorpress'),
-                'addContent' => __('Add Content', 'tutorpress'),
-                'confirmDeleteTopic' => __('Are you sure you want to delete this topic?', 'tutorpress'),
-                'confirmDeleteContent' => __('Are you sure you want to delete this content?', 'tutorpress'),
-                'lesson' => __('Lesson', 'tutorpress'),
-                'quiz' => __('Quiz', 'tutorpress'),
-                'assignment' => __('Assignment', 'tutorpress')
-            ]
+                'editTopic' => __('Edit Topic', 'tutorpress'),
+                'deleteTopic' => __('Delete Topic', 'tutorpress'),
+                'duplicateTopic' => __('Duplicate Topic', 'tutorpress'),
+                'addLesson' => __('Add Lesson', 'tutorpress'),
+                'addQuiz' => __('Add Quiz', 'tutorpress'),
+                'addAssignment' => __('Add Assignment', 'tutorpress'),
+                'saving' => __('Saving...', 'tutorpress'),
+                'saved' => __('Saved', 'tutorpress'),
+                'error' => __('Error', 'tutorpress'),
+                'confirmDelete' => __('Are you sure you want to delete this?', 'tutorpress'),
+                'cancel' => __('Cancel', 'tutorpress'),
+                'save' => __('Save', 'tutorpress'),
+            ],
+            'capabilities' => [
+                'canEdit' => current_user_can('edit_post', $post_id),
+                'canDelete' => current_user_can('delete_post', $post_id),
+            ],
         ]);
-
-        wp_set_script_translations(
-            'tutorpress-curriculum-metabox',
-            'tutorpress'
-        );
     }
 
     /**

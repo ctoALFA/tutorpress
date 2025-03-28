@@ -8,6 +8,10 @@
 
 namespace TutorPress\Gutenberg\Metaboxes;
 
+use WP_REST_Server;
+use WP_Error;
+use WP_Post;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -17,6 +21,11 @@ defined( 'ABSPATH' ) || exit;
  * using vanilla JavaScript and Tutor LMS's data structure.
  */
 class Curriculum_Metabox {
+
+    /**
+     * REST API namespace
+     */
+    const REST_NAMESPACE = 'tutorpress/v1';
 
     /**
      * Initialize the metabox
@@ -237,133 +246,201 @@ class Curriculum_Metabox {
     }
 
     /**
-     * Register REST API endpoints
-     * These endpoints will proxy to Tutor LMS's AJAX endpoints
+     * Register REST API routes
      */
     public static function register_rest_routes() {
+        // Get course topics
+        register_rest_route(
+            self::REST_NAMESPACE,
+            '/course/(?P<course_id>\d+)/topics',
+            [
+                'methods' => 'GET',
+                'callback' => [__CLASS__, 'get_course_topics'],
+                'permission_callback' => [__CLASS__, 'check_read_permission'],
+                'args' => [
+                    'course_id' => [
+                        'required' => true,
+                        'validate_callback' => 'rest_validate_request_arg',
+                    ],
+                ],
+            ]
+        );
+
+        // Register REST routes for curriculum management
         register_rest_route(
             'tutorpress/v1',
-            '/curriculum/(?P<id>\d+)',
-            array(
-                array(
-                    'methods'             => \WP_REST_Server::READABLE,
-                    'callback'            => array( __CLASS__, 'get_curriculum' ),
-                    'permission_callback' => function( $request ) {
-                        return current_user_can( 'edit_post', $request['id'] );
-                    }
-                ),
-                array(
-                    'methods'             => \WP_REST_Server::EDITABLE,
-                    'callback'            => array( __CLASS__, 'update_curriculum' ),
-                    'permission_callback' => function( $request ) {
-                        return current_user_can( 'edit_post', $request['id'] );
-                    }
-                )
-            )
+            '/curriculum/topic',
+            [
+                [
+                    'methods' => WP_REST_Server::CREATABLE,
+                    'callback' => [__CLASS__, 'handle_topic_save'],
+                    'permission_callback' => [__CLASS__, 'check_topic_permissions'],
+                    'args' => [
+                        'course_id' => [
+                            'required' => true,
+                            'type' => 'integer',
+                            'sanitize_callback' => 'absint',
+                        ],
+                        'title' => [
+                            'required' => true,
+                            'type' => 'string',
+                            'sanitize_callback' => 'sanitize_text_field',
+                        ],
+                        'summary' => [
+                            'required' => false,
+                            'type' => 'string',
+                            'sanitize_callback' => 'sanitize_textarea_field',
+                        ],
+                        'topic_id' => [
+                            'required' => false,
+                            'type' => 'integer',
+                            'sanitize_callback' => 'absint',
+                        ],
+                    ],
+                ],
+                [
+                    'methods' => WP_REST_Server::DELETABLE,
+                    'callback' => [__CLASS__, 'handle_topic_delete'],
+                    'permission_callback' => [__CLASS__, 'check_topic_permissions'],
+                    'args' => [
+                        'topic_id' => [
+                            'required' => true,
+                            'type' => 'integer',
+                            'sanitize_callback' => 'absint',
+                        ],
+                    ],
+                ],
+            ]
         );
     }
 
     /**
-     * Get curriculum data
-     * 
-     * @param \WP_REST_Request $request Request object
-     * @return \WP_REST_Response
+     * Check if user can read course content
      */
-    public static function get_curriculum( $request ) {
-        $course_id = $request['id'];
-
-        // Get topics
-        $topics = get_posts(array(
-            'post_type'      => 'topics',
-            'post_parent'    => $course_id,
-            'posts_per_page' => -1,
-            'orderby'        => 'menu_order',
-            'order'          => 'ASC'
-        ));
-
-        $curriculum = array();
-        foreach ( $topics as $topic ) {
-            // Get topic contents
-            $contents = get_posts(array(
-                'post_type'      => array( 'lesson', 'tutor_quiz', 'tutor_assignments' ),
-                'post_parent'    => $topic->ID,
-                'posts_per_page' => -1,
-                'orderby'        => 'menu_order',
-                'order'          => 'ASC'
-            ));
-
-            $curriculum[] = array(
-                'ID'         => $topic->ID,
-                'title'      => $topic->post_title,
-                'contents'   => array_map( function( $content ) {
-                    return array(
-                        'ID'        => $content->ID,
-                        'title'     => $content->post_title,
-                        'type'      => $content->post_type,
-                        'order'     => $content->menu_order
-                    );
-                }, $contents )
-            );
-        }
-
-        return rest_ensure_response( array(
-            'success' => true,
-            'data'    => $curriculum
-        ) );
+    public static function check_read_permission($request) {
+        $course_id = $request->get_param('course_id');
+        return current_user_can('read_course', $course_id);
     }
 
     /**
-     * Update curriculum data
-     * This will proxy to Tutor LMS's update endpoints
-     * 
-     * @param \WP_REST_Request $request Request object
-     * @return \WP_REST_Response
+     * Check permissions for topic operations
      */
-    public static function update_curriculum( $request ) {
-        $course_id = $request['id'];
-        $action = $request->get_param( 'action' );
-        $data = $request->get_json_params();
+    public static function check_topic_permissions($request) {
+        $course_id = $request->get_param('course_id');
+        $topic_id = $request->get_param('topic_id');
+        
+        // For creation, check course edit permissions
+        if ($course_id) {
+            return current_user_can('edit_post', $course_id);
+        }
+        
+        // For deletion/update, check topic edit permissions
+        if ($topic_id) {
+            return current_user_can('edit_post', $topic_id);
+        }
+        
+        return false;
+    }
 
-        switch ( $action ) {
-            case 'add_topic':
-                // Proxy to Tutor LMS's add topic endpoint
-                $result = wp_remote_post( admin_url( 'admin-ajax.php' ), array(
-                    'body' => array(
-                        'action'    => 'tutor_save_topic',
-                        'course_id' => $course_id,
-                        'title'     => $data['title'],
-                        'summary'   => $data['summary'] ?? '',
-                        'nonce'     => wp_create_nonce( 'tutor_nonce' )
-                    )
-                ));
-                break;
+    /**
+     * Get course topics
+     */
+    public static function get_course_topics($request) {
+        $course_id = $request->get_param('course_id');
+        
+        $topics = get_posts([
+            'post_type' => 'topics',
+            'post_parent' => $course_id,
+            'posts_per_page' => -1,
+            'orderby' => 'meta_value_num',
+            'meta_key' => 'topic_order',
+            'order' => 'ASC',
+        ]);
 
-            case 'delete_topic':
-                // Proxy to Tutor LMS's delete topic endpoint
-                $result = wp_remote_post( admin_url( 'admin-ajax.php' ), array(
-                    'body' => array(
-                        'action'   => 'tutor_delete_topic',
-                        'topic_id' => $data['topic_id'],
-                        'nonce'    => wp_create_nonce( 'tutor_nonce' )
-                    )
-                ));
-                break;
+        return rest_ensure_response($topics);
+    }
 
-            default:
-                return new \WP_Error(
-                    'invalid_action',
-                    __( 'Invalid action', 'tutorpress' ),
-                    array( 'status' => 400 )
-                );
+    /**
+     * Handle topic save request
+     */
+    public static function handle_topic_save($request) {
+        $course_id = $request->get_param('course_id');
+        $title = $request->get_param('title');
+        $summary = $request->get_param('summary');
+        $topic_id = $request->get_param('topic_id');
+
+        // Get next topic order
+        $next_order = tutor_utils()->get_next_topic_order_id($course_id);
+
+        $topic_data = [
+            'post_type'    => 'topics',
+            'post_title'   => $title,
+            'post_content' => $summary,
+            'post_status'  => 'publish',
+            'post_parent'  => $course_id,
+            'menu_order'   => $next_order,
+        ];
+
+        if ($topic_id) {
+            $topic_data['ID'] = $topic_id;
+            $topic_id = wp_update_post($topic_data);
+        } else {
+            $topic_id = wp_insert_post($topic_data);
         }
 
-        if ( is_wp_error( $result ) ) {
-            return $result;
+        if (is_wp_error($topic_id)) {
+            return new WP_Error(
+                'topic_save_failed',
+                $topic_id->get_error_message(),
+                ['status' => 500]
+            );
         }
 
-        $response = json_decode( wp_remote_retrieve_body( $result ), true );
+        // Update topic meta
+        update_post_meta($topic_id, '_tutor_course_id_for_topic', $course_id);
 
-        return rest_ensure_response( $response );
+        // Get the updated topic data
+        $topic = get_post($topic_id);
+        
+        return rest_ensure_response([
+            'id' => $topic_id,
+            'title' => $topic->post_title,
+            'summary' => $topic->post_content,
+            'order' => $topic->menu_order,
+        ]);
+    }
+
+    /**
+     * Handle topic deletion
+     */
+    public static function handle_topic_delete($request) {
+        $topic_id = $request->get_param('topic_id');
+        
+        // Check if topic exists and is of correct type
+        $topic = get_post($topic_id);
+        if (!$topic || $topic->post_type !== 'topics') {
+            return new WP_Error(
+                'topic_not_found',
+                __('Topic not found', 'tutorpress'),
+                ['status' => 404]
+            );
+        }
+
+        // Delete the topic
+        $result = wp_delete_post($topic_id, true);
+        
+        if (!$result) {
+            return new WP_Error(
+                'topic_delete_failed',
+                __('Failed to delete topic', 'tutorpress'),
+                ['status' => 500]
+            );
+        }
+
+        return rest_ensure_response([
+            'deleted' => true,
+            'topic_id' => $topic_id
+        ]);
     }
 }
 
